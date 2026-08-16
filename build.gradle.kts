@@ -1,23 +1,13 @@
 plugins {
-	kotlin("jvm") version "2.4.10"
+	kotlin("multiplatform") version "2.1.10" apply false
+	kotlin("jvm") version "2.1.10" apply false
 }
 
-group = "org.wip"
-version = "1.0-SNAPSHOT"
+allprojects {
+	group = "org.wip"
+	version = "1.0.0-SNAPSHOT"
 
-repositories {
-	mavenCentral()
-}
-
-dependencies {
-	implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.9.1")
-	testImplementation(kotlin("test"))
-}
-
-kotlin {
-	jvmToolchain(21)
-}
-
-tasks.test {
-	useJUnitPlatform()
+	repositories {
+		mavenCentral()
+	}
 }

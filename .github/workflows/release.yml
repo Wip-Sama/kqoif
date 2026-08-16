@@ -1,0 +1,56 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  release:
+    name: Build & Publish Release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+          cache: 'gradle'
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      - name: Run Tests
+        run: ./gradlew check
+
+      - name: Build Distribution Packages & JARs
+        run: ./gradlew assemble :kqoif-cli:distZip :kqoif-cli:distTar
+
+      - name: Extract Tag Version
+        id: tag_version
+        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Release ${{ steps.tag_version.outputs.TAG_NAME }}
+          tag_name: ${{ steps.tag_version.outputs.TAG_NAME }}
+          generate_release_notes: true
+          draft: false
+          prerelease: false
+          files: |
+            kqoif-cli/build/distributions/*.zip
+            kqoif-cli/build/distributions/*.tar
+            kqoif-core/build/libs/*.jar
+            kqoif-imageio/build/libs/*.jar
+            kqoif-cli/build/libs/*.jar
