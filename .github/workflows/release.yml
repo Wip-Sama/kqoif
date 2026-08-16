@@ -35,12 +35,16 @@ jobs:
       - name: Run Tests
         run: ./gradlew check
 
-      - name: Build Distribution Packages & JARs
-        run: ./gradlew assemble :kqoif-cli:distZip :kqoif-cli:distTar
-
       - name: Extract Tag Version
         id: tag_version
-        run: echo "TAG_NAME=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+        run: |
+          TAG_NAME="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG_NAME#v}"
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Build Distribution Packages & JARs
+        run: ./gradlew assemble :kqoif-cli:distZip :kqoif-cli:distTar -Pversion=${{ steps.tag_version.outputs.VERSION }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
@@ -54,5 +58,6 @@ jobs:
             kqoif-cli/build/distributions/*.zip
             kqoif-cli/build/distributions/*.tar
             kqoif-core/build/libs/*.jar
+            kqoif-core/build/libs/*.klib
             kqoif-imageio/build/libs/*.jar
             kqoif-cli/build/libs/*.jar
