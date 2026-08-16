@@ -4,16 +4,17 @@ import java.util.logging.Logger
 
 /**
  * Represents the 1-byte QOI_OP_RUN chunk.
+ * - 2-bit tag b11
+ * - 6-bit run-length repeating the previous pixel: 1..62
+ *
+ * The run-length is stored with a bias of -1. Note that the runlengths 63 and 64 (b111110 and b111111) are illegal as they are
+ * occupied by the QOI_OP_RGB and QOI_OP_RGBA tags.
  * ┌─ QOI_OP_RUN ────┐
  * │     Byte[0]     │
  * │ 7 6 5 4 3 2 1 0 │
  * │─────┼───────────│
  * │ 1 1 │    run    │
  * └─────────────────┘
- *
- * The run-length is stored with a bias of -1 (encoded as `run - 1`).
- * Valid pixel run lengths are 1..62 (stored values 0..61).
- * Stored values 62 (`0b11111110` = 0xFE = QOI_OP_RGB) and 63 (`0b11111111` = 0xFF = QOI_OP_RGBA) are illegal.
  */
 data class QoiOpRun(
     val tag: UByte,
