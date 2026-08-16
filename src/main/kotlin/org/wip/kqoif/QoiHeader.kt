@@ -17,11 +17,11 @@ import java.util.logging.Logger
  * ```
  */
 data class QoiHeader(
-    val magic: ByteArray,
-    val width: UInt,
-    val height: UInt,
-    val channels: UByte,
-    val colorspace: UByte
+	val magic: ByteArray,
+    var width: UInt,
+	var height: UInt,
+    var channels: UByte,
+    var colorspace: UByte
 ) {
     companion object {
         private val logger: Logger = Logger.getLogger(QoiHeader::class.java.name)

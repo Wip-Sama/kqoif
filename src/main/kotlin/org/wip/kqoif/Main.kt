@@ -5,6 +5,7 @@ import java.util.logging.Logger
 
 private val logger = Logger.getLogger("Main")
 
+
 /**
  * QOI_OP_LUMA  bytes[2], b10 dg6 dr_dg db_dg
  * - dg6 = green channel difference from previous pixel -32..31

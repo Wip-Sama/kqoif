@@ -10,6 +10,7 @@ repositories {
 }
 
 dependencies {
+	implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.9.1")
 	testImplementation(kotlin("test"))
 }
 

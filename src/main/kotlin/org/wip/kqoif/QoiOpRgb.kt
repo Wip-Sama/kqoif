@@ -4,19 +4,22 @@ import java.util.logging.Logger
 
 /**
  * Represents the 4-byte QOI_OP_RGB chunk.
+ *
+ * ```
  * ┌─ QOI_OP_RGB ────┬────────┬────────┬─────────┐
  * │     Byte[0]     │ Byte[1]│ Byte[2]│ Byte[3] │
  * │ 7 6 5 4 3 2 1 0 │ 7 .. 0 │ 7 .. 0 │ 7 .. 0  │
  * │─────────────────┼────────┼────────┼─────────│
  * │ 1 1 1 1 1 1 1 0 │  red   │ green  │  blue   │
  * └─────────────────┴────────┴────────┴─────────┘
+ * ```
  */
 data class QoiOpRgb(
-    val tag: UByte,
+    override val tag: UByte,
     val red: UByte,
     val green: UByte,
     val blue: UByte
-) {
+) : QoiOp {
     companion object {
         private val logger: Logger = Logger.getLogger(QoiOpRgb::class.java.name)
 
@@ -27,7 +30,19 @@ data class QoiOpRgb(
         const val CHUNK_SIZE: Int = 4
 
         /**
+         * Checks if the byte at [offset] in [bytes] matches the QOI_OP_RGB tag `0xFE`.
+         */
+        fun matchTag(bytes: ByteArray, offset: Int = 0): Boolean {
+            if (bytes.size - offset < CHUNK_SIZE) return false
+            return bytes[offset] == 0xFE.toByte()
+        }
+
+        /**
          * Deserializes a [QoiOpRgb] chunk from [bytes] at [offset].
+         *
+         * @param bytes Raw byte array containing the chunk.
+         * @param offset Starting offset in [bytes].
+         * @return The deserialized [QoiOpRgb].
          */
         fun fromBytes(bytes: ByteArray, offset: Int = 0): QoiOpRgb {
             require(bytes.size - offset >= CHUNK_SIZE) {
@@ -55,11 +70,24 @@ data class QoiOpRgb(
     constructor(red: UByte, green: UByte, blue: UByte) : this(TAG, red, green, blue)
     constructor(red: Int, green: Int, blue: Int) : this(TAG, red.toUByte(), green.toUByte(), blue.toUByte())
 
-    fun isValid(): Boolean {
+    /**
+     * Converts this RGB chunk to a [Color] preserving the alpha from [prevColor].
+     */
+    fun toColor(prevColor: Color = Color(0, 0, 0, 255)): Color {
+        return Color(red.toInt(), green.toInt(), blue.toInt(), prevColor.a)
+    }
+
+    /**
+     * Checks if this operation has a valid tag (0xFE).
+     */
+    override fun isValid(): Boolean {
         return tag == TAG
     }
 
-    fun toBytes(): ByteArray {
+    /**
+     * Serializes this operation into a 4-byte QOI chunk.
+     */
+    override fun toBytes(): ByteArray {
         val result = ByteArray(CHUNK_SIZE)
         result[0] = this.tag.toByte()
         result[1] = this.red.toByte()
