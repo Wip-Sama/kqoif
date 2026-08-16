@@ -27,7 +27,8 @@ data class QoiOpIndex(
         /** Bitmask for the 6-bit index (`0b00111111` = `0x3F`). */
         const val INDEX_MASK: UInt = 0x3Fu
 
-        /** Maximum allowed index value (63). */
+        /** Maximum allowed index value (63).
+         * Could be implied since we're working with 6 bits 2^6=64 */
         val MAX_INDEX: UByte = 63u
 
         /**
@@ -51,6 +52,18 @@ data class QoiOpIndex(
                 logger.warning("Deserialized QOI_OP_INDEX contains invalid values: $op")
             }
             return op
+        }
+
+        fun indexPosition(red: Int, green: Int, blue: Int, alpha: Int): UInt {
+            return ((red * 3 + green * 5 + blue * 7 + alpha * 11) % 64).toUInt()
+        }
+
+        fun indexPosition(red: UByte, green: UByte, blue: UByte, alpha: UByte): UInt {
+            return (red * 3u + green * 5u + blue * 7u + alpha * 11u).mod(64u)
+        }
+
+        fun indexPosition(red: UInt, green: UInt, blue: UInt, alpha: UInt): UInt {
+            return (red * 3u + green * 5u + blue * 7u + alpha * 11u).mod(64u)
         }
     }
 

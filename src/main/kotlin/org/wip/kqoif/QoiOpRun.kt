@@ -4,80 +4,93 @@ import java.util.logging.Logger
 
 /**
  * Represents the 1-byte QOI_OP_RUN chunk.
-┌─ QOI_OP_RUN ────┐
-│     Byte[0]     │
-│ 7 6 5 4 3 2 1 0 │
-│─────┼───────────│
-│ 1 1 │    run    │
-└─────────────────┘
+ * ┌─ QOI_OP_RUN ────┐
+ * │     Byte[0]     │
+ * │ 7 6 5 4 3 2 1 0 │
+ * │─────┼───────────│
+ * │ 1 1 │    run    │
+ * └─────────────────┘
+ *
+ * The run-length is stored with a bias of -1 (encoded as `run - 1`).
+ * Valid pixel run lengths are 1..62 (stored values 0..61).
+ * Stored values 62 (`0b11111110` = 0xFE = QOI_OP_RGB) and 63 (`0b11111111` = 0xFF = QOI_OP_RGBA) are illegal.
  */
 data class QoiOpRun(
-	val tag: UByte,
-	val index: UByte
+    val tag: UByte,
+    val run: UByte
 ) {
-	companion object {
-		private val logger: Logger = Logger.getLogger(QoiOpRun::class.java.name)
+    companion object {
+        private val logger: Logger = Logger.getLogger(QoiOpRun::class.java.name)
 
-		/** The 2-bit tag for QOI_OP_INDEX (bits 7..6 are `11`). */
-		val TAG: UByte = 0x11u
+        /** The 2-bit tag for QOI_OP_RUN (bits 7..6 are `11`, i.e. 0x03). */
+        val TAG: UByte = 0x03u
 
-		/** Bitmask for the 2-bit tag (`0b11000000` = `0xC0`). */
-		const val TAG_MASK: UInt = 0xC0u
+        /** Bitmask for the 2-bit tag (`0b11000000` = `0xC0`). */
+        const val TAG_MASK: UInt = 0xC0u
 
-		/** Bitmask for the 6-bit index (`0b00111111` = `0x3F`). */
-		const val INDEX_MASK: UInt = 0x3Fu
+        /** Bitmask for the 6-bit run field (`0b00111111` = `0x3F`). */
+        const val RUN_MASK: UInt = 0x3Fu
 
-		/** Maximum allowed index value (63). */
-		val MAX_INDEX: UByte = 63u
+        /** Bias applied to run length when stored (-1). */
+        const val BIAS: Int = -1
 
-		/**
-		 * Deserializes a [QoiOpRun] from a single byte in [bytes] starting at [offset].
-		 *
-		 * @param bytes Byte array containing the serialized QOI chunk.
-		 * @param offset Starting offset in [bytes].
-		 * @return The deserialized [QoiOpRun].
-		 * @throws IllegalArgumentException if fewer than 1 byte is available or tag is invalid.
-		 */
-		fun fromBytes(bytes: ByteArray, offset: Int = 0): QoiOpRun {
-			require(bytes.size - offset >= 1) {
-				"Buffer too short for QOI_OP_INDEX. Expected at least 1 byte, but only ${bytes.size - offset} bytes are available."
-			}
-			val byte = bytes[offset].toUByte()
-			val tag = ((byte.toUInt() and TAG_MASK) shr 6).toUByte()
-			val index = (byte.toUInt() and INDEX_MASK).toUByte()
+        /** Minimum run length (1 pixel). */
+        val MIN_RUN: UByte = 1u
 
-			val op = QoiOpRun(tag, index)
-			if (!op.isValid()) {
-				logger.warning("Deserialized QOI_OP_INDEX contains invalid values: $op")
-			}
-			return op
-		}
-	}
+        /** Maximum run length (62 pixels). Stored values 62 and 63 are illegal as they collide with QOI_OP_RGB / RGBA. */
+        val MAX_RUN: UByte = 62u
 
-	init {
-		require(tag == TAG) {
-			"Invalid tag for QOI_OP_INDEX. Expected 0x00, but got $tag."
-		}
-		require(index <= MAX_INDEX) {
-			"Index value must be between 0 and 63, but got $index."
-		}
-	}
+        /**
+         * Deserializes a [QoiOpRun] from a single byte in [bytes] starting at [offset].
+         * Unbiases the stored value (+1) to decode the actual run length.
+         *
+         * @param bytes Byte array containing the serialized QOI chunk.
+         * @param offset Starting offset in [bytes].
+         * @return The deserialized [QoiOpRun].
+         * @throws IllegalArgumentException if fewer than 1 byte is available or tag/run is invalid.
+         */
+        fun fromBytes(bytes: ByteArray, offset: Int = 0): QoiOpRun {
+            require(bytes.size - offset >= 1) {
+                "Buffer too short for QOI_OP_RUN. Expected at least 1 byte, but only ${bytes.size - offset} bytes are available."
+            }
+            val byte = bytes[offset].toUByte()
+            val tag = ((byte.toUInt() and TAG_MASK) shr 6).toUByte()
+            val stored = (byte.toUInt() and RUN_MASK).toInt()
+            val run = (stored - BIAS).toUByte() // stored + 1
 
-	constructor(index: UByte) : this(TAG, index)
-	constructor(index: Int) : this(TAG, index.toUByte())
+            val op = QoiOpRun(tag, run)
+            if (!op.isValid()) {
+                logger.warning("Deserialized QOI_OP_RUN contains invalid values: $op")
+            }
+            return op
+        }
+    }
 
-	/**
-	 * Checks if this operation has a valid tag (0x00) and index (0..63).
-	 */
-	fun isValid(): Boolean {
-		return tag == TAG && index <= MAX_INDEX
-	}
+    init {
+        require(tag == TAG) {
+            "Invalid tag for QOI_OP_RUN. Expected 0x03 (0b11), but got $tag."
+        }
+        require(run in MIN_RUN..MAX_RUN) {
+            "Run length must be between 1 and 62, but got $run."
+        }
+    }
 
-	/**
-	 * Serializes this operation into a 1-byte QOI chunk.
-	 */
-	fun toBytes(): ByteArray {
-		val rawByte = (((tag.toUInt() and 0x03u) shl 6) or (index.toUInt() and INDEX_MASK)).toByte()
-		return byteArrayOf(rawByte)
-	}
+    constructor(run: UByte) : this(TAG, run)
+    constructor(run: Int) : this(TAG, run.toUByte())
+
+    /**
+     * Checks if this operation has a valid tag (0x03) and run length in 1..62.
+     */
+    fun isValid(): Boolean {
+        return tag == TAG && run in MIN_RUN..MAX_RUN
+    }
+
+    /**
+     * Serializes this operation into a 1-byte QOI chunk applying bias -1 (stored as `run - 1`).
+     */
+    fun toBytes(): ByteArray {
+        val stored = (run.toInt() + BIAS) and RUN_MASK.toInt() // run - 1
+        val rawByte = (((tag.toUInt() and 0x03u) shl 6) or stored.toUInt()).toByte()
+        return byteArrayOf(rawByte)
+    }
 }
