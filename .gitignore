@@ -20,6 +20,7 @@ out/
 
 ### Kotlin ###
 .kotlin
+kotlin-js-store/
 
 ### Eclipse ###
 .apt_generated
@@ -38,7 +39,7 @@ bin/
 /nbbuild/
 /dist/
 /nbdist/
-/.nb-gradle/
+/nb-gradle/
 
 ### VS Code ###
 .vscode/
