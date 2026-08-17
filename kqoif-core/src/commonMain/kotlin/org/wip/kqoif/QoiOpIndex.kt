@@ -21,12 +21,12 @@ data class QoiOpIndex(
     override val tag: UByte,
     val index: UByte
 ) : QoiOp {
-    companion object {
+    companion object : QoiOpCompanion<QoiOpIndex> {
         /** The 2-bit tag for QOI_OP_INDEX (bits 7..6 are `00`). */
-        val TAG: UByte = 0x00u
+        override val TAG: UByte = 0x00u
 
         /** Total size of the QOI_OP_INDEX chunk in bytes. */
-        const val CHUNK_SIZE: Int = 1
+        override val CHUNK_SIZE: Int = 1
 
         /** Bitmask for the 2-bit tag (`0b11000000` = `0xC0`). */
         const val TAG_MASK: UInt = 0xC0u
@@ -41,11 +41,57 @@ data class QoiOpIndex(
          * Checks if the byte at [offset] in [bytes] matches the QOI_OP_INDEX tag `0b00`.
          * Excludes `0xFE` (RGB) and `0xFF` (RGBA).
          */
-        fun matchTag(bytes: ByteArray, offset: Int = 0): Boolean {
+        override fun matchTag(bytes: ByteArray, offset: Int): Boolean {
             if (bytes.size - offset < CHUNK_SIZE) return false
             val byte = bytes[offset].toUByte().toUInt()
             return (byte and TAG_MASK) == 0x00u && byte != 0xFEu && byte != 0xFFu
         }
+
+        /**
+         * Writes a 1-byte QOI_OP_INDEX chunk directly into [out] at [offset].
+         *
+         * @param index Index value (0..63).
+         * @param out Destination byte array.
+         * @param offset Starting offset in [out].
+         * @return Number of bytes written (1).
+         */
+        fun writeBytes(index: Int, out: ByteArray, offset: Int = 0): Int {
+            require(index in 0..63) { "Index value must be between 0 and 63, but got $index." }
+            require(out.size - offset >= CHUNK_SIZE) {
+                "Buffer too short for QOI_OP_INDEX. Expected at least $CHUNK_SIZE byte, but only ${out.size - offset} bytes are available."
+            }
+            out[offset] = (index and INDEX_MASK.toInt()).toByte()
+            return CHUNK_SIZE
+        }
+
+        /**
+         * Writes a 1-byte QOI_OP_INDEX chunk directly into [out] at [offset].
+         */
+        fun writeBytes(index: UByte, out: ByteArray, offset: Int = 0): Int = writeBytes(index.toInt(), out, offset)
+
+        /**
+         * Writes a 1-byte QOI_OP_INDEX chunk for [color]'s hash index directly into [out] at [offset].
+         */
+        fun writeBytes(color: Color, out: ByteArray, offset: Int = 0): Int = writeBytes(color.toHash(), out, offset)
+
+        /**
+         * Serializes an index (0..63) into a 1-byte QOI_OP_INDEX chunk.
+         */
+        fun toBytes(index: Int): ByteArray {
+            val result = ByteArray(CHUNK_SIZE)
+            writeBytes(index, result, 0)
+            return result
+        }
+
+        /**
+         * Serializes an index (0..63) into a 1-byte QOI_OP_INDEX chunk.
+         */
+        fun toBytes(index: UByte): ByteArray = toBytes(index.toInt())
+
+        /**
+         * Serializes [color]'s hash index into a 1-byte QOI_OP_INDEX chunk.
+         */
+        fun toBytes(color: Color): ByteArray = toBytes(color.toHash())
 
         /**
          * Deserializes a [QoiOpIndex] from a single byte in [bytes] starting at [offset].
@@ -55,7 +101,7 @@ data class QoiOpIndex(
          * @return The deserialized [QoiOpIndex].
          * @throws IllegalArgumentException if fewer than 1 byte is available or tag is invalid.
          */
-        fun fromBytes(bytes: ByteArray, offset: Int = 0): QoiOpIndex {
+        override fun fromBytes(bytes: ByteArray, offset: Int): QoiOpIndex {
             require(bytes.size - offset >= CHUNK_SIZE) {
                 "Buffer too short for QOI_OP_INDEX. Expected at least $CHUNK_SIZE byte, but only ${bytes.size - offset} bytes are available."
             }
@@ -110,8 +156,5 @@ data class QoiOpIndex(
     /**
      * Serializes this operation into a 1-byte QOI chunk.
      */
-    override fun toBytes(): ByteArray {
-        val rawByte = (((tag.toUInt() and 0x03u) shl 6) or (index.toUInt() and INDEX_MASK)).toByte()
-        return byteArrayOf(rawByte)
-    }
+    override fun toBytes(): ByteArray = Companion.toBytes(index.toInt())
 }

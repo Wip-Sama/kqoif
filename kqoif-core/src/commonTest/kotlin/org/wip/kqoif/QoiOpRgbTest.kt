@@ -59,4 +59,29 @@ class QoiOpRgbTest {
         assertEquals(op1.hashCode(), op2.hashCode())
         assertNotEquals(op1, op3)
     }
+
+    @Test
+    fun testCompanionInterfaceAndDirectSerialization() {
+        val companion: QoiOpCompanion<QoiOpRgb> = QoiOpRgb
+        assertEquals(0xFEu.toUByte(), companion.TAG)
+        assertEquals(4, companion.CHUNK_SIZE)
+        assertTrue(companion.matchTag(byteArrayOf(0xFE.toByte(), 0, 0, 0)))
+
+        val out = ByteArray(6)
+        val written = QoiOpRgb.writeBytes(red = 10, green = 20, blue = 30, out = out, offset = 1)
+        assertEquals(4, written)
+        assertEquals(0xFE.toByte(), out[1])
+        assertEquals(10.toByte(), out[2])
+        assertEquals(20.toByte(), out[3])
+        assertEquals(30.toByte(), out[4])
+
+        val directBytes = QoiOpRgb.toBytes(10, 20, 30)
+        assertEquals(4, directBytes.size)
+        assertEquals(0xFE.toByte(), directBytes[0])
+
+        val colorBytes = QoiOpRgb.toBytes(Color(10, 20, 30))
+        assertEquals(4, colorBytes.size)
+        assertEquals(0xFE.toByte(), colorBytes[0])
+    }
 }
+

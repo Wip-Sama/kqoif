@@ -97,7 +97,7 @@ object QoiDiagnostic {
 
         var offset = 0
         val header = QoiHeader.fromBytes(bytes, offset)
-        offset += QoiHeader.HEADER_SIZE
+        offset += QoiHeader.CHUNK_SIZE
 
         val totalPixels = header.width.toInt() * header.height.toInt()
         val pixels = ArrayList<Color>(totalPixels)

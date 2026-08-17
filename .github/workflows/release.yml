@@ -32,9 +32,6 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
-      - name: Run Tests
-        run: ./gradlew check
-
       - name: Extract Tag Version
         id: tag_version
         run: |
@@ -43,8 +40,8 @@ jobs:
           echo "TAG_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
           echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
 
-      - name: Build Distribution Packages & JARs
-        run: ./gradlew assemble :kqoif-cli:distZip :kqoif-cli:distTar -Pversion=${{ steps.tag_version.outputs.VERSION }}
+      - name: Build, Test & Package Release
+        run: ./gradlew clean check assemble :kqoif-cli:distZip :kqoif-cli:distTar -Pversion=${{ steps.tag_version.outputs.VERSION }}
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

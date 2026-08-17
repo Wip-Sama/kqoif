@@ -22,12 +22,12 @@ data class QoiOpRun(
     override val tag: UByte,
     val run: UByte
 ) : QoiOp {
-    companion object {
+    companion object : QoiOpCompanion<QoiOpRun> {
         /** The 2-bit tag for QOI_OP_RUN (bits 7..6 are `11`, i.e. 0x03). */
-        val TAG: UByte = 0x03u
+        override val TAG: UByte = 0x03u
 
         /** Total size of the QOI_OP_RUN chunk in bytes. */
-        const val CHUNK_SIZE: Int = 1
+        override val CHUNK_SIZE: Int = 1
 
         /** Bitmask for the 2-bit tag (`0b11000000` = `0xC0`). */
         const val TAG_MASK: UInt = 0xC0u
@@ -48,11 +48,48 @@ data class QoiOpRun(
          * Checks if the byte at [offset] in [bytes] matches the QOI_OP_RUN tag `0b11`.
          * Excludes `0xFE` (RGB) and `0xFF` (RGBA).
          */
-        fun matchTag(bytes: ByteArray, offset: Int = 0): Boolean {
+        override fun matchTag(bytes: ByteArray, offset: Int): Boolean {
             if (bytes.size - offset < CHUNK_SIZE) return false
             val byte = bytes[offset].toUByte().toUInt()
             return (byte and TAG_MASK) == 0xC0u && byte != 0xFEu && byte != 0xFFu
         }
+
+        /**
+         * Writes a 1-byte QOI_OP_RUN chunk directly into [out] at [offset].
+         *
+         * @param run Run length between 1 and 62.
+         * @param out Destination byte array.
+         * @param offset Starting offset in [out].
+         * @return Number of bytes written (1).
+         */
+        fun writeBytes(run: Int, out: ByteArray, offset: Int = 0): Int {
+            require(run in 1..62) { "Run length must be between 1 and 62, but got $run." }
+            require(out.size - offset >= CHUNK_SIZE) {
+                "Buffer too short for QOI_OP_RUN. Expected at least $CHUNK_SIZE byte, but only ${out.size - offset} bytes are available."
+            }
+            val stored = (run + BIAS) and RUN_MASK.toInt()
+            out[offset] = (0xC0 or stored).toByte()
+            return CHUNK_SIZE
+        }
+
+        /**
+         * Writes a 1-byte QOI_OP_RUN chunk directly into [out] at [offset].
+         */
+        fun writeBytes(run: UByte, out: ByteArray, offset: Int = 0): Int = writeBytes(run.toInt(), out, offset)
+
+        /**
+         * Serializes a run length (1..62) into a 1-byte QOI_OP_RUN chunk.
+         */
+        fun toBytes(run: Int): ByteArray {
+            val result = ByteArray(CHUNK_SIZE)
+            writeBytes(run, result, 0)
+            return result
+        }
+
+        /**
+         * Serializes a run length (1..62) into a 1-byte QOI_OP_RUN chunk.
+         */
+        fun toBytes(run: UByte): ByteArray = toBytes(run.toInt())
 
         /**
          * Deserializes a [QoiOpRun] from a single byte in [bytes] starting at [offset].
@@ -63,7 +100,7 @@ data class QoiOpRun(
          * @return The deserialized [QoiOpRun].
          * @throws IllegalArgumentException if fewer than 1 byte is available or tag/run is invalid.
          */
-        fun fromBytes(bytes: ByteArray, offset: Int = 0): QoiOpRun {
+        override fun fromBytes(bytes: ByteArray, offset: Int): QoiOpRun {
             require(bytes.size - offset >= CHUNK_SIZE) {
                 "Buffer too short for QOI_OP_RUN. Expected at least $CHUNK_SIZE byte, but only ${bytes.size - offset} bytes are available."
             }
@@ -98,9 +135,5 @@ data class QoiOpRun(
     /**
      * Serializes this operation into a 1-byte QOI chunk applying bias -1 (stored as `run - 1`).
      */
-    override fun toBytes(): ByteArray {
-        val stored = (run.toInt() + BIAS) and RUN_MASK.toInt() // run - 1
-        val rawByte = (((tag.toUInt() and 0x03u) shl 6) or stored.toUInt()).toByte()
-        return byteArrayOf(rawByte)
-    }
+    override fun toBytes(): ByteArray = Companion.toBytes(run.toInt())
 }

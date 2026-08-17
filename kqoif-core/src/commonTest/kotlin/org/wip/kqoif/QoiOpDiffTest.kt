@@ -128,4 +128,45 @@ class QoiOpDiffTest {
         assertEquals(op1.hashCode(), op2.hashCode())
         assertNotEquals(op1, op3)
     }
+
+    @Test
+    fun testCompanionInterfaceAndDirectSerialization() {
+        val companion: QoiOpCompanion<QoiOpDiff> = QoiOpDiff
+        assertEquals(1u.toUByte(), companion.TAG)
+        assertEquals(1, companion.CHUNK_SIZE)
+        assertTrue(companion.matchTag(byteArrayOf(0x40)))
+
+        assertTrue(QoiOpDiff.canEncode(-2, 0, 1))
+        assertTrue(!QoiOpDiff.canEncode(-3, 0, 1))
+
+        val p1 = Color(10, 20, 30, 255)
+        val p2 = Color(9, 20, 31, 255)
+        val pAlphaDiff = Color(9, 20, 31, 254)
+        val pFar = Color(20, 20, 30, 255)
+
+        assertTrue(QoiOpDiff.canEncode(p1, p2))
+        assertTrue(!QoiOpDiff.canEncode(p1, pAlphaDiff))
+        assertTrue(!QoiOpDiff.canEncode(p1, pFar))
+
+        val out = ByteArray(5)
+        val written = QoiOpDiff.writeBytes(dr = -1, dg = 0, db = 1, out = out, offset = 2)
+        assertEquals(1, written)
+        assertEquals(0x5B.toByte(), out[2])
+
+        val tryWritten = QoiOpDiff.tryWriteBytes(p1, p2, out, 2)
+        assertEquals(1, tryWritten)
+        assertEquals(0x5B.toByte(), out[2])
+
+        val tryFailed = QoiOpDiff.tryWriteBytes(p1, pFar, out, 2)
+        assertEquals(0, tryFailed)
+
+        val bytesDirect = QoiOpDiff.toBytes(dr = -1, dg = 0, db = 1)
+        assertEquals(1, bytesDirect.size)
+        assertEquals(0x5B.toByte(), bytesDirect[0])
+
+        val bytesColor = QoiOpDiff.toBytes(p1, p2)
+        assertEquals(1, bytesColor?.size)
+        assertEquals(0x5B.toByte(), bytesColor?.get(0))
+    }
 }
+

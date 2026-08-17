@@ -220,4 +220,28 @@ class QoiHeaderTest {
         assertEquals(300u, aliasInstance.width)
         assertEquals(200u, aliasInstance.height)
     }
+
+    @Test
+    fun testCompanionInterfaceAndWriteBytes() {
+        val companion: QoiChunkCompanion<QoiHeader> = QoiHeader
+        assertEquals(14, companion.CHUNK_SIZE)
+
+        val out = ByteArray(20)
+        val written = QoiHeader.writeBytes(
+            width = 800u,
+            height = 600u,
+            channels = QoiHeader.CHANNELS_RGB,
+            colorspace = QoiHeader.COLORSPACE_LINEAR,
+            out = out,
+            offset = 3
+        )
+        assertEquals(14, written)
+
+        val parsed = companion.fromBytes(out, offset = 3)
+        assertEquals(800u, parsed.width)
+        assertEquals(600u, parsed.height)
+        assertEquals(QoiHeader.CHANNELS_RGB, parsed.channels)
+        assertEquals(QoiHeader.COLORSPACE_LINEAR, parsed.colorspace)
+    }
 }
+

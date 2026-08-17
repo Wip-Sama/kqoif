@@ -134,4 +134,31 @@ class QoiOpIndexTest {
         assertEquals(op1.hashCode(), op2.hashCode())
         assertNotEquals(op1, op3)
     }
+
+    @Test
+    fun testCompanionInterfaceAndDirectSerialization() {
+        val companion: QoiOpCompanion<QoiOpIndex> = QoiOpIndex
+        assertEquals(0u.toUByte(), companion.TAG)
+        assertEquals(1, companion.CHUNK_SIZE)
+        assertTrue(companion.matchTag(byteArrayOf(0x00)))
+
+        val out = ByteArray(5)
+        val written = QoiOpIndex.writeBytes(index = 42, out = out, offset = 1)
+        assertEquals(1, written)
+        assertEquals(42.toByte(), out[1])
+
+        val bytesInt = QoiOpIndex.toBytes(42)
+        assertEquals(1, bytesInt.size)
+        assertEquals(42.toByte(), bytesInt[0])
+
+        val color = Color(10, 20, 30, 40)
+        val writtenColor = QoiOpIndex.writeBytes(color = color, out = out, offset = 3)
+        assertEquals(1, writtenColor)
+        assertEquals(color.toHash().toByte(), out[3])
+
+        val colorBytes = QoiOpIndex.toBytes(color)
+        assertEquals(1, colorBytes.size)
+        assertEquals(color.toHash().toByte(), colorBytes[0])
+    }
 }
+

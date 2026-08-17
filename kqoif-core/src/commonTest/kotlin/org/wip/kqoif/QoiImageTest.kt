@@ -153,4 +153,42 @@ class QoiImageTest {
             image.encode()
         }
     }
+
+    @Test
+    fun testDirectAndObjectStrategiesProduceIdenticalBytes() {
+        val header = QoiHeader(width = 8u, height = 2u, channels = QoiHeader.CHANNELS_RGBA, colorspace = QoiHeader.COLORSPACE_SRGB)
+        val c1 = Color(50, 60, 70, 255)
+        val c2 = Color(51, 60, 69, 255)
+        val c3 = Color(65, 75, 76, 255)
+        val c4 = Color(200, 100, 50, 100)
+        val pixels = listOf(
+            c1, c1, c1,
+            c2,
+            c3,
+            c4,
+            c1,
+            c4,
+            Color(10, 20, 30, 255),
+            Color(10, 20, 30, 255),
+            Color(10, 20, 30, 255),
+            Color(11, 20, 30, 255),
+            Color(25, 35, 36, 255),
+            c1,
+            Color(255, 0, 0, 128),
+            Color(255, 0, 0, 128)
+        )
+        val image = QoiImage(header, pixels)
+
+        val directBytes = image.encode(QoiEncoderStrategy.DIRECT)
+        val objectBytes = image.encode(QoiEncoderStrategy.OBJECT)
+
+        assertEquals(directBytes.size, objectBytes.size)
+        kotlin.test.assertTrue(directBytes.contentEquals(objectBytes))
+
+        val decodedDirect = QoiImage.decode(directBytes)
+        val decodedObject = QoiImage.decode(objectBytes)
+        assertEquals(image.pixels, decodedDirect.pixels)
+        assertEquals(image.pixels, decodedObject.pixels)
+    }
 }
+

@@ -21,12 +21,15 @@ data class QoiHeader(
     val channels: UByte,
     val colorspace: UByte
 ) {
-    companion object {
+    companion object : QoiChunkCompanion<QoiHeader> {
         /** The standard 4-byte magic signature for QOI files ("qoif" in ASCII: 0x71, 0x6F, 0x69, 0x66). */
         val MAGIC: ByteArray = byteArrayOf(0x71, 0x6F, 0x69, 0x66)
 
         /** Total size of the QOI header in bytes as defined by the specification. */
         const val HEADER_SIZE: Int = 14
+
+        /** Chunk size for companion interface. */
+        override val CHUNK_SIZE: Int get() = HEADER_SIZE
 
         /** 3-channel RGB image format. */
         val CHANNELS_RGB: UByte = 3u
@@ -41,6 +44,55 @@ data class QoiHeader(
         val COLORSPACE_LINEAR: UByte = 1u
 
         /**
+         * Writes a 14-byte QOI header directly into [out] starting at [offset].
+         *
+         * @param width Image width in pixels.
+         * @param height Image height in pixels.
+         * @param channels Channel count (3 for RGB, 4 for RGBA).
+         * @param colorspace Colorspace (0 for sRGB, 1 for Linear).
+         * @param out Destination byte array.
+         * @param offset Starting offset in [out].
+         * @return Number of bytes written (14).
+         */
+        fun writeBytes(
+            width: UInt,
+            height: UInt,
+            channels: UByte,
+            colorspace: UByte,
+            out: ByteArray,
+            offset: Int = 0
+        ): Int {
+            require(out.size - offset >= CHUNK_SIZE) {
+                "Buffer too short for QOI header. Expected at least $CHUNK_SIZE bytes, but only ${out.size - offset} bytes are available."
+            }
+            MAGIC.copyInto(out, destinationOffset = offset, startIndex = 0, endIndex = 4)
+
+            out[offset + 4] = ((width shr 24) and 0xFFu).toByte()
+            out[offset + 5] = ((width shr 16) and 0xFFu).toByte()
+            out[offset + 6] = ((width shr 8) and 0xFFu).toByte()
+            out[offset + 7] = (width and 0xFFu).toByte()
+
+            out[offset + 8] = ((height shr 24) and 0xFFu).toByte()
+            out[offset + 9] = ((height shr 16) and 0xFFu).toByte()
+            out[offset + 10] = ((height shr 8) and 0xFFu).toByte()
+            out[offset + 11] = (height and 0xFFu).toByte()
+
+            out[offset + 12] = channels.toByte()
+            out[offset + 13] = colorspace.toByte()
+
+            return CHUNK_SIZE
+        }
+
+        /**
+         * Writes [header] directly into [out] starting at [offset].
+         *
+         * @return Number of bytes written (14).
+         */
+        fun writeBytes(header: QoiHeader, out: ByteArray, offset: Int = 0): Int {
+            return writeBytes(header.width, header.height, header.channels, header.colorspace, out, offset)
+        }
+
+        /**
          * Deserializes a [QoiHeader] from a byte array starting at the specified [offset].
          *
          * @param bytes The raw byte array containing header bytes.
@@ -48,9 +100,9 @@ data class QoiHeader(
          * @return The parsed [QoiHeader].
          * @throws IllegalArgumentException if the buffer has fewer than 14 bytes remaining.
          */
-        fun fromBytes(bytes: ByteArray, offset: Int = 0): QoiHeader {
-            require(bytes.size - offset >= HEADER_SIZE) {
-                "Buffer too short for QOI header. Expected at least $HEADER_SIZE bytes, but only ${bytes.size - offset} bytes are available."
+        override fun fromBytes(bytes: ByteArray, offset: Int): QoiHeader {
+            require(bytes.size - offset >= CHUNK_SIZE) {
+                "Buffer too short for QOI header. Expected at least $CHUNK_SIZE bytes, but only ${bytes.size - offset} bytes are available."
             }
 
             val magic = bytes.copyOfRange(offset, offset + 4)
@@ -119,27 +171,8 @@ data class QoiHeader(
      * Serializes this header into a 14-byte QOI binary header format with big-endian integer fields.
      */
     fun toBytes(): ByteArray {
-        val result = ByteArray(HEADER_SIZE)
-        magic.copyInto(result, destinationOffset = 0, startIndex = 0, endIndex = 4)
-
-        // Width (32-bit unsigned int, big-endian)
-        result[4] = ((width shr 24) and 0xFFu).toByte()
-        result[5] = ((width shr 16) and 0xFFu).toByte()
-        result[6] = ((width shr 8) and 0xFFu).toByte()
-        result[7] = (width and 0xFFu).toByte()
-
-        // Height (32-bit unsigned int, big-endian)
-        result[8] = ((height shr 24) and 0xFFu).toByte()
-        result[9] = ((height shr 16) and 0xFFu).toByte()
-        result[10] = ((height shr 8) and 0xFFu).toByte()
-        result[11] = (height and 0xFFu).toByte()
-
-        // Channels (8-bit unsigned int)
-        result[12] = channels.toByte()
-
-        // Colorspace (8-bit unsigned int)
-        result[13] = colorspace.toByte()
-
+        val result = ByteArray(CHUNK_SIZE)
+        writeBytes(this, result, 0)
         return result
     }
 

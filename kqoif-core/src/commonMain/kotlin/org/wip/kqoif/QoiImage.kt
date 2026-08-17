@@ -59,8 +59,8 @@ data class QoiImage(
          * @throws IllegalArgumentException if the buffer is too short or lacks the standard terminator.
          */
         fun byteArrayIsPlausible(bytes: ByteArray) {
-            require(bytes.size >= QoiHeader.HEADER_SIZE + TERMINATOR.size) {
-                "Byte array is too short to be a valid QOI image. Expected at least ${QoiHeader.HEADER_SIZE + TERMINATOR.size} bytes, got ${bytes.size}."
+            require(bytes.size >= QoiHeader.CHUNK_SIZE + TERMINATOR.size) {
+                "Byte array is too short to be a valid QOI image. Expected at least ${QoiHeader.CHUNK_SIZE + TERMINATOR.size} bytes, got ${bytes.size}."
             }
             val hasTerminator = bytes.copyOfRange(bytes.size - TERMINATOR.size, bytes.size).contentEquals(TERMINATOR)
             require(hasTerminator) {
@@ -80,7 +80,7 @@ data class QoiImage(
 
             var offset = 0
             val header = QoiHeader.fromBytes(bytes, offset)
-            offset += QoiHeader.HEADER_SIZE
+            offset += QoiHeader.CHUNK_SIZE
 
             val totalPixels = header.width.toInt() * header.height.toInt()
             val pixels = ArrayList<Color>(totalPixels)
@@ -162,12 +162,99 @@ data class QoiImage(
     }
 
     /**
-     * Encodes this image into a raw QOI binary [ByteArray].
+     * Encodes this image into a raw QOI binary [ByteArray] using the specified [strategy].
      *
+     * @param strategy The encoding strategy ([QoiEncoderStrategy.DIRECT] for transitive zero-allocation,
+     *                 or [QoiEncoderStrategy.OBJECT] for AST object instantiation).
      * @return Byte array containing the encoded QOI image.
      * @throws IllegalArgumentException if the image is malformed or pixel count doesn't match dimensions.
      */
-    fun encode(): ByteArray {
+    fun encode(strategy: QoiEncoderStrategy = QoiEncoderStrategy.DIRECT): ByteArray {
+        return when (strategy) {
+            QoiEncoderStrategy.DIRECT -> encodeDirect()
+            QoiEncoderStrategy.OBJECT -> encodeObject()
+        }
+    }
+
+    /**
+     * Encodes this image directly into a byte buffer with zero intermediate [QoiOp] allocations.
+     */
+    fun encodeDirect(): ByteArray {
+        require(isValid()) {
+            "Malformed QOI image: expected ${header.width.toInt() * header.height.toInt()} pixels, got ${pixels.size}."
+        }
+
+        val totalPixels = pixels.size
+        val maxBufferSize = QoiHeader.CHUNK_SIZE + totalPixels * 5 + TERMINATOR.size
+        val out = ByteArray(maxBufferSize)
+        var offset = QoiHeader.writeBytes(header, out, 0)
+
+        val seenPixels: Array<Color> = Array(64) { Color(0, 0, 0, 0) }
+        var prevPixel = Color(0, 0, 0, 255)
+        var run = 0
+
+        for (i in 0 until totalPixels) {
+            val pixel = pixels[i]
+            if (prevPixel == pixel) {
+                run++
+                if (run == QoiOpRun.MAX_RUN.toInt()) {
+                    offset += QoiOpRun.writeBytes(run, out, offset)
+                    run = 0
+                }
+                continue
+            }
+
+            if (run > 0) {
+                offset += QoiOpRun.writeBytes(run, out, offset)
+                run = 0
+            }
+
+            val hash = pixel.toHash()
+            val seenPixel = seenPixels[hash]
+            if (seenPixel == pixel) {
+                offset += QoiOpIndex.writeBytes(hash, out, offset)
+                prevPixel = pixel
+                continue
+            }
+            seenPixels[hash] = pixel
+
+            if (pixel.a == prevPixel.a) {
+                val diffLen = QoiOpDiff.tryWriteBytes(prevPixel, pixel, out, offset)
+                if (diffLen > 0) {
+                    offset += diffLen
+                    prevPixel = pixel
+                    continue
+                }
+                val lumaLen = QoiOpLuma.tryWriteBytes(prevPixel, pixel, out, offset)
+                if (lumaLen > 0) {
+                    offset += lumaLen
+                    prevPixel = pixel
+                    continue
+                }
+            }
+
+            if (header.channels == QoiHeader.CHANNELS_RGBA) {
+                offset += QoiOpRgba.writeBytes(pixel, out, offset)
+            } else {
+                offset += QoiOpRgb.writeBytes(pixel, out, offset)
+            }
+            prevPixel = pixel
+        }
+
+        if (run > 0) {
+            offset += QoiOpRun.writeBytes(run, out, offset)
+        }
+
+        TERMINATOR.copyInto(out, destinationOffset = offset, startIndex = 0, endIndex = TERMINATOR.size)
+        offset += TERMINATOR.size
+
+        return out.copyOf(offset)
+    }
+
+    /**
+     * Encodes this image by instantiating intermediate [QoiOp] instances and byte arrays.
+     */
+    fun encodeObject(): ByteArray {
         require(isValid()) {
             "Malformed QOI image: expected ${header.width.toInt() * header.height.toInt()} pixels, got ${pixels.size}."
         }

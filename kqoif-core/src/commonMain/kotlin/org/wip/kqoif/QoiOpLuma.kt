@@ -23,12 +23,12 @@ data class QoiOpLuma(
     val dr_dg: Byte,
     val db_dg: Byte
 ) : QoiOp {
-    companion object {
+    companion object : QoiOpCompanion<QoiOpLuma> {
         /** The 2-bit tag for QOI_OP_LUMA (bits 7..6 are `10`, i.e. 0x02). */
-        val TAG: UByte = 0x02u
+        override val TAG: UByte = 0x02u
 
         /** Total size of QOI_OP_LUMA chunk in bytes. */
-        const val CHUNK_SIZE: Int = 2
+        override val CHUNK_SIZE: Int = 2
 
         /** Bitmask for the 2-bit tag (`0b11000000` = `0xC0`). */
         const val TAG_MASK: UInt = 0xC0u
@@ -63,10 +63,91 @@ data class QoiOpLuma(
         /**
          * Checks if the byte at [offset] in [bytes] matches the QOI_OP_LUMA tag `0b10`.
          */
-        fun matchTag(bytes: ByteArray, offset: Int = 0): Boolean {
+        override fun matchTag(bytes: ByteArray, offset: Int): Boolean {
             if (bytes.size - offset < CHUNK_SIZE) return false
             val byte = bytes[offset].toUByte().toUInt()
             return (byte and TAG_MASK) == 0x80u
+        }
+
+        /**
+         * Checks if luma differences [dg], [dr_dg], [db_dg] are within their valid encodable ranges.
+         */
+        fun canEncode(dg: Int, dr_dg: Int, db_dg: Int): Boolean {
+            return dg in MIN_DG..MAX_DG && dr_dg in MIN_DR_DB..MAX_DR_DB && db_dg in MIN_DR_DB..MAX_DR_DB
+        }
+
+        /**
+         * Checks if the transition from [prev] to [curr] can be represented as a QOI_OP_LUMA chunk.
+         */
+        fun canEncode(prev: Color, curr: Color): Boolean {
+            if (prev.a != curr.a) return false
+            val vr = curr.r - prev.r
+            val vg = curr.g - prev.g
+            val vb = curr.b - prev.b
+            val vgR = vr - vg
+            val vgB = vb - vg
+            return canEncode(vg, vgR, vgB)
+        }
+
+        /**
+         * Writes a 2-byte QOI_OP_LUMA chunk directly into [out] at [offset].
+         *
+         * @param dg Green channel difference (-32..31).
+         * @param dr_dg Red minus green difference (-8..7).
+         * @param db_dg Blue minus green difference (-8..7).
+         * @param out Destination byte array.
+         * @param offset Starting offset in [out].
+         * @return Number of bytes written (2).
+         */
+        fun writeBytes(dg: Int, dr_dg: Int, db_dg: Int, out: ByteArray, offset: Int = 0): Int {
+            require(canEncode(dg, dr_dg, db_dg)) {
+                "Luma differences out of range: dg=$dg, dr_dg=$dr_dg, db_dg=$db_dg."
+            }
+            require(out.size - offset >= CHUNK_SIZE) {
+                "Buffer too short for QOI_OP_LUMA. Expected at least $CHUNK_SIZE bytes, got ${out.size - offset}."
+            }
+            out[offset] = (0x80 or ((dg + DG_BIAS) and DG_MASK.toInt())).toByte()
+            out[offset + 1] = ((((dr_dg + DR_DB_BIAS) and 0x0F) shl 4) or ((db_dg + DR_DB_BIAS) and 0x0F)).toByte()
+            return CHUNK_SIZE
+        }
+
+        /**
+         * Attempts to directly write a QOI_OP_LUMA chunk from [prev] and [curr] into [out] at [offset].
+         *
+         * @return Number of bytes written (2 if encodable, 0 otherwise).
+         */
+        fun tryWriteBytes(prev: Color, curr: Color, out: ByteArray, offset: Int = 0): Int {
+            if (prev.a != curr.a) return 0
+            val vr = curr.r - prev.r
+            val vg = curr.g - prev.g
+            val vb = curr.b - prev.b
+            val vgR = vr - vg
+            val vgB = vb - vg
+            return if (canEncode(vg, vgR, vgB)) {
+                writeBytes(vg, vgR, vgB, out, offset)
+            } else {
+                0
+            }
+        }
+
+        /**
+         * Serializes luma differences into a 2-byte QOI_OP_LUMA chunk.
+         */
+        fun toBytes(dg: Int, dr_dg: Int, db_dg: Int): ByteArray {
+            val result = ByteArray(CHUNK_SIZE)
+            writeBytes(dg, dr_dg, db_dg, result, 0)
+            return result
+        }
+
+        /**
+         * Serializes the difference between [prev] and [curr] into a 2-byte QOI_OP_LUMA chunk, or null if not encodable.
+         */
+        fun toBytes(prev: Color, curr: Color): ByteArray? {
+            if (!canEncode(prev, curr)) return null
+            val vr = curr.r - prev.r
+            val vg = curr.g - prev.g
+            val vb = curr.b - prev.b
+            return toBytes(vg, vr - vg, vb - vg)
         }
 
         /**
@@ -77,7 +158,7 @@ data class QoiOpLuma(
          * @return The deserialized [QoiOpLuma].
          * @throws IllegalArgumentException if fewer than 2 bytes are available or tag is invalid.
          */
-        fun fromBytes(bytes: ByteArray, offset: Int = 0): QoiOpLuma {
+        override fun fromBytes(bytes: ByteArray, offset: Int): QoiOpLuma {
             require(bytes.size - offset >= CHUNK_SIZE) {
                 "Buffer too short for QOI_OP_LUMA. Expected at least $CHUNK_SIZE bytes, got ${bytes.size - offset}."
             }
@@ -102,7 +183,7 @@ data class QoiOpLuma(
             val vgR = vr - vg
             val vgB = vb - vg
 
-            return if (vg in MIN_DG..MAX_DG && vgR in MIN_DR_DB..MAX_DR_DB && vgB in MIN_DR_DB..MAX_DR_DB) {
+            return if (canEncode(vg, vgR, vgB) && prevColor.a == currColor.a) {
                 QoiOpLuma(dg = vg, dr_dg = vgR, db_dg = vgB)
             } else {
                 null
@@ -145,9 +226,5 @@ data class QoiOpLuma(
     /**
      * Serializes this operation into a 2-byte QOI chunk applying the biases (32 for dg, 8 for dr_dg/db_dg).
      */
-    override fun toBytes(): ByteArray {
-        val byte0 = (((tag.toUInt() and 0x03u) shl 6) or ((dg.toInt() + DG_BIAS).toUInt() and DG_MASK)).toByte()
-        val byte1 = ((((dr_dg.toInt() + DR_DB_BIAS).toUInt() and 0x0Fu) shl 4) or ((db_dg.toInt() + DR_DB_BIAS).toUInt() and 0x0Fu)).toByte()
-        return byteArrayOf(byte0, byte1)
-    }
+    override fun toBytes(): ByteArray = Companion.toBytes(dg.toInt(), dr_dg.toInt(), db_dg.toInt())
 }

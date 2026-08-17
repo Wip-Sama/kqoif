@@ -121,4 +121,26 @@ class QoiOpRunTest {
         assertEquals(op1.hashCode(), op2.hashCode())
         assertNotEquals(op1, op3)
     }
+
+    @Test
+    fun testCompanionInterfaceAndDirectSerialization() {
+        val companion: QoiOpCompanion<QoiOpRun> = QoiOpRun
+        assertEquals(3u.toUByte(), companion.TAG)
+        assertEquals(1, companion.CHUNK_SIZE)
+        assertTrue(companion.matchTag(byteArrayOf(0xC0.toByte())))
+
+        val out = ByteArray(5)
+        val written = QoiOpRun.writeBytes(run = 10, out = out, offset = 2)
+        assertEquals(1, written)
+        assertEquals(0xC9.toByte(), out[2]) // 0xC0 | (10 - 1) = 0xC9
+
+        val bytesInt = QoiOpRun.toBytes(10)
+        assertEquals(1, bytesInt.size)
+        assertEquals(0xC9.toByte(), bytesInt[0])
+
+        val bytesUByte = QoiOpRun.toBytes(10u.toUByte())
+        assertEquals(1, bytesUByte.size)
+        assertEquals(0xC9.toByte(), bytesUByte[0])
+    }
 }
+

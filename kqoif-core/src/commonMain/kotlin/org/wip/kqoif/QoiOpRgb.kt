@@ -18,20 +18,76 @@ data class QoiOpRgb(
     val green: UByte,
     val blue: UByte
 ) : QoiOp {
-    companion object {
+    companion object : QoiOpCompanion<QoiOpRgb> {
         /** The tag for QOI_OP_RGB, which is `11111110` in binary (0xFE). */
-        val TAG: UByte = 0xFEu
+        override val TAG: UByte = 0xFEu
 
         /** Total size of QOI_OP_RGB chunk in bytes. */
-        const val CHUNK_SIZE: Int = 4
+        override val CHUNK_SIZE: Int = 4
 
         /**
          * Checks if the byte at [offset] in [bytes] matches the QOI_OP_RGB tag `0xFE`.
          */
-        fun matchTag(bytes: ByteArray, offset: Int = 0): Boolean {
+        override fun matchTag(bytes: ByteArray, offset: Int): Boolean {
             if (bytes.size - offset < CHUNK_SIZE) return false
             return bytes[offset] == 0xFE.toByte()
         }
+
+        /**
+         * Writes a 4-byte QOI_OP_RGB chunk directly into [out] at [offset].
+         *
+         * @param red Red channel value (0..255).
+         * @param green Green channel value (0..255).
+         * @param blue Blue channel value (0..255).
+         * @param out Destination byte array.
+         * @param offset Starting offset in [out].
+         * @return Number of bytes written (4).
+         */
+        fun writeBytes(red: Int, green: Int, blue: Int, out: ByteArray, offset: Int = 0): Int {
+            require(out.size - offset >= CHUNK_SIZE) {
+                "Buffer too short for QOI_OP_RGB. Expected at least $CHUNK_SIZE bytes, but only ${out.size - offset} bytes are available."
+            }
+            out[offset] = 0xFE.toByte()
+            out[offset + 1] = (red and 0xFF).toByte()
+            out[offset + 2] = (green and 0xFF).toByte()
+            out[offset + 3] = (blue and 0xFF).toByte()
+            return CHUNK_SIZE
+        }
+
+        /**
+         * Writes a 4-byte QOI_OP_RGB chunk directly into [out] at [offset].
+         */
+        fun writeBytes(red: UByte, green: UByte, blue: UByte, out: ByteArray, offset: Int = 0): Int {
+            return writeBytes(red.toInt(), green.toInt(), blue.toInt(), out, offset)
+        }
+
+        /**
+         * Writes a 4-byte QOI_OP_RGB chunk for [color] directly into [out] at [offset].
+         */
+        fun writeBytes(color: Color, out: ByteArray, offset: Int = 0): Int {
+            return writeBytes(color.r, color.g, color.b, out, offset)
+        }
+
+        /**
+         * Serializes RGB channels into a 4-byte QOI_OP_RGB chunk.
+         */
+        fun toBytes(red: Int, green: Int, blue: Int): ByteArray {
+            val result = ByteArray(CHUNK_SIZE)
+            writeBytes(red, green, blue, result, 0)
+            return result
+        }
+
+        /**
+         * Serializes RGB channels into a 4-byte QOI_OP_RGB chunk.
+         */
+        fun toBytes(red: UByte, green: UByte, blue: UByte): ByteArray {
+            return toBytes(red.toInt(), green.toInt(), blue.toInt())
+        }
+
+        /**
+         * Serializes [color] into a 4-byte QOI_OP_RGB chunk.
+         */
+        fun toBytes(color: Color): ByteArray = toBytes(color.r, color.g, color.b)
 
         /**
          * Deserializes a [QoiOpRgb] chunk from [bytes] at [offset].
@@ -40,7 +96,7 @@ data class QoiOpRgb(
          * @param offset Starting offset in [bytes].
          * @return The deserialized [QoiOpRgb].
          */
-        fun fromBytes(bytes: ByteArray, offset: Int = 0): QoiOpRgb {
+        override fun fromBytes(bytes: ByteArray, offset: Int): QoiOpRgb {
             require(bytes.size - offset >= CHUNK_SIZE) {
                 "Buffer too short for QOI_OP_RGB. Expected at least $CHUNK_SIZE bytes, but only ${bytes.size - offset} bytes are available."
             }
@@ -79,12 +135,5 @@ data class QoiOpRgb(
     /**
      * Serializes this operation into a 4-byte QOI chunk.
      */
-    override fun toBytes(): ByteArray {
-        val result = ByteArray(CHUNK_SIZE)
-        result[0] = this.tag.toByte()
-        result[1] = this.red.toByte()
-        result[2] = this.green.toByte()
-        result[3] = this.blue.toByte()
-        return result
-    }
+    override fun toBytes(): ByteArray = Companion.toBytes(red.toInt(), green.toInt(), blue.toInt())
 }

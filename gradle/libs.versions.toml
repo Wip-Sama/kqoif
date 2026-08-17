@@ -1,0 +1,29 @@
+[versions]
+kotlin = "2.4.10"
+kotlinx-io = "0.9.1"
+twelvemonkeys = "3.14.0"
+clikt = "5.1.0"
+foojay-resolver = "1.0.0"
+
+[libraries]
+kotlinx-io-core = { module = "org.jetbrains.kotlinx:kotlinx-io-core", version.ref = "kotlinx-io" }
+twelvemonkeys-imageio-core = { module = "com.twelvemonkeys.imageio:imageio-core", version.ref = "twelvemonkeys" }
+twelvemonkeys-imageio-jpeg = { module = "com.twelvemonkeys.imageio:imageio-jpeg", version.ref = "twelvemonkeys" }
+twelvemonkeys-imageio-bmp = { module = "com.twelvemonkeys.imageio:imageio-bmp", version.ref = "twelvemonkeys" }
+twelvemonkeys-imageio-webp = { module = "com.twelvemonkeys.imageio:imageio-webp", version.ref = "twelvemonkeys" }
+twelvemonkeys-imageio-tiff = { module = "com.twelvemonkeys.imageio:imageio-tiff", version.ref = "twelvemonkeys" }
+clikt = { module = "com.github.ajalt.clikt:clikt", version.ref = "clikt" }
+
+[bundles]
+twelvemonkeys-imageio = [
+    "twelvemonkeys-imageio-core",
+    "twelvemonkeys-imageio-jpeg",
+    "twelvemonkeys-imageio-bmp",
+    "twelvemonkeys-imageio-webp",
+    "twelvemonkeys-imageio-tiff",
+]
+
+[plugins]
+kotlin-multiplatform = { id = "org.jetbrains.kotlin.multiplatform", version.ref = "kotlin" }
+kotlin-jvm = { id = "org.jetbrains.kotlin.jvm", version.ref = "kotlin" }
+foojay-resolver = { id = "org.gradle.toolchains.foojay-resolver-convention", version.ref = "foojay-resolver" }

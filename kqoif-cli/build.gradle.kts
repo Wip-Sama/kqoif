@@ -1,5 +1,5 @@
 plugins {
-	kotlin("jvm")
+	alias(libs.plugins.kotlin.jvm)
 	application
 }
 
@@ -14,7 +14,7 @@ application {
 dependencies {
 	implementation(project(":kqoif-core"))
 	implementation(project(":kqoif-imageio"))
-	implementation("com.github.ajalt.clikt:clikt:5.0.3")
+	implementation(libs.clikt)
 	testImplementation(kotlin("test"))
 }
 

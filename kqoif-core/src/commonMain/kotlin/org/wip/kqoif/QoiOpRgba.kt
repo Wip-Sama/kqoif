@@ -19,20 +19,78 @@ data class QoiOpRgba(
     val blue: UByte,
     val alpha: UByte
 ) : QoiOp {
-    companion object {
+    companion object : QoiOpCompanion<QoiOpRgba> {
         /** The tag for QOI_OP_RGBA, which is `11111111` in binary (0xFF). */
-        val TAG: UByte = 0xFFu
+        override val TAG: UByte = 0xFFu
 
         /** Total size of QOI_OP_RGBA chunk in bytes. */
-        const val CHUNK_SIZE: Int = 5
+        override val CHUNK_SIZE: Int = 5
 
         /**
          * Checks if the byte at [offset] in [bytes] matches the QOI_OP_RGBA tag `0xFF`.
          */
-        fun matchTag(bytes: ByteArray, offset: Int = 0): Boolean {
+        override fun matchTag(bytes: ByteArray, offset: Int): Boolean {
             if (bytes.size - offset < CHUNK_SIZE) return false
             return bytes[offset] == 0xFF.toByte()
         }
+
+        /**
+         * Writes a 5-byte QOI_OP_RGBA chunk directly into [out] at [offset].
+         *
+         * @param red Red channel value (0..255).
+         * @param green Green channel value (0..255).
+         * @param blue Blue channel value (0..255).
+         * @param alpha Alpha channel value (0..255).
+         * @param out Destination byte array.
+         * @param offset Starting offset in [out].
+         * @return Number of bytes written (5).
+         */
+        fun writeBytes(red: Int, green: Int, blue: Int, alpha: Int, out: ByteArray, offset: Int = 0): Int {
+            require(out.size - offset >= CHUNK_SIZE) {
+                "Buffer too short for QOI_OP_RGBA. Expected at least $CHUNK_SIZE bytes, but only ${out.size - offset} bytes are available."
+            }
+            out[offset] = 0xFF.toByte()
+            out[offset + 1] = (red and 0xFF).toByte()
+            out[offset + 2] = (green and 0xFF).toByte()
+            out[offset + 3] = (blue and 0xFF).toByte()
+            out[offset + 4] = (alpha and 0xFF).toByte()
+            return CHUNK_SIZE
+        }
+
+        /**
+         * Writes a 5-byte QOI_OP_RGBA chunk directly into [out] at [offset].
+         */
+        fun writeBytes(red: UByte, green: UByte, blue: UByte, alpha: UByte, out: ByteArray, offset: Int = 0): Int {
+            return writeBytes(red.toInt(), green.toInt(), blue.toInt(), alpha.toInt(), out, offset)
+        }
+
+        /**
+         * Writes a 5-byte QOI_OP_RGBA chunk for [color] directly into [out] at [offset].
+         */
+        fun writeBytes(color: Color, out: ByteArray, offset: Int = 0): Int {
+            return writeBytes(color.r, color.g, color.b, color.a, out, offset)
+        }
+
+        /**
+         * Serializes RGBA channels into a 5-byte QOI_OP_RGBA chunk.
+         */
+        fun toBytes(red: Int, green: Int, blue: Int, alpha: Int): ByteArray {
+            val result = ByteArray(CHUNK_SIZE)
+            writeBytes(red, green, blue, alpha, result, 0)
+            return result
+        }
+
+        /**
+         * Serializes RGBA channels into a 5-byte QOI_OP_RGBA chunk.
+         */
+        fun toBytes(red: UByte, green: UByte, blue: UByte, alpha: UByte): ByteArray {
+            return toBytes(red.toInt(), green.toInt(), blue.toInt(), alpha.toInt())
+        }
+
+        /**
+         * Serializes [color] into a 5-byte QOI_OP_RGBA chunk.
+         */
+        fun toBytes(color: Color): ByteArray = toBytes(color.r, color.g, color.b, color.a)
 
         /**
          * Deserializes a [QoiOpRgba] chunk from [bytes] at [offset].
@@ -41,7 +99,7 @@ data class QoiOpRgba(
          * @param offset Starting offset in [bytes].
          * @return The deserialized [QoiOpRgba].
          */
-        fun fromBytes(bytes: ByteArray, offset: Int = 0): QoiOpRgba {
+        override fun fromBytes(bytes: ByteArray, offset: Int): QoiOpRgba {
             require(bytes.size - offset >= CHUNK_SIZE) {
                 "Buffer too short for QOI_OP_RGBA. Expected at least $CHUNK_SIZE bytes, but only ${bytes.size - offset} bytes are available."
             }
@@ -81,13 +139,5 @@ data class QoiOpRgba(
     /**
      * Serializes this operation into a 5-byte QOI chunk.
      */
-    override fun toBytes(): ByteArray {
-        val result = ByteArray(CHUNK_SIZE)
-        result[0] = this.tag.toByte()
-        result[1] = this.red.toByte()
-        result[2] = this.green.toByte()
-        result[3] = this.blue.toByte()
-        result[4] = this.alpha.toByte()
-        return result
-    }
+    override fun toBytes(): ByteArray = Companion.toBytes(red.toInt(), green.toInt(), blue.toInt(), alpha.toInt())
 }

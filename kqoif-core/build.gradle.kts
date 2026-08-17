@@ -1,7 +1,7 @@
 import org.jetbrains.kotlin.gradle.ExperimentalWasmDsl
 
 plugins {
-	kotlin("multiplatform")
+	alias(libs.plugins.kotlin.multiplatform)
 	`maven-publish`
 }
 
@@ -33,7 +33,7 @@ kotlin {
 
 	sourceSets {
 		commonMain.dependencies {
-			implementation("org.jetbrains.kotlinx:kotlinx-io-core:0.7.0")
+			implementation(libs.kotlinx.io.core)
 		}
 		commonTest.dependencies {
 			implementation(kotlin("test"))

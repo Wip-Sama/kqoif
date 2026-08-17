@@ -154,4 +154,43 @@ class QoiOpLumaTest {
         assertEquals(op1.hashCode(), op2.hashCode())
         assertNotEquals(op1, op3)
     }
+
+    @Test
+    fun testCompanionInterfaceAndDirectSerialization() {
+        val companion: QoiOpCompanion<QoiOpLuma> = QoiOpLuma
+        assertEquals(2u.toUByte(), companion.TAG)
+        assertEquals(2, companion.CHUNK_SIZE)
+        assertTrue(companion.matchTag(byteArrayOf(0x80.toByte(), 0x00)))
+
+        assertTrue(QoiOpLuma.canEncode(10, -3, 4))
+        assertTrue(!QoiOpLuma.canEncode(32, -3, 4))
+
+        val p1 = Color(10, 20, 30, 255)
+        val p2 = Color(17, 30, 34, 255) // vg = 10, vr = 7 (dr_dg = -3), vb = 4 (db_dg = -6)
+        val pFar = Color(100, 20, 30, 255)
+
+        assertTrue(QoiOpLuma.canEncode(p1, p2))
+        assertTrue(!QoiOpLuma.canEncode(p1, pFar))
+
+        val out = ByteArray(6)
+        val written = QoiOpLuma.writeBytes(dg = 10, dr_dg = -3, db_dg = 4, out = out, offset = 1)
+        assertEquals(2, written)
+        assertEquals(0xAA.toByte(), out[1])
+        assertEquals(0x5C.toByte(), out[2])
+
+        val tryWritten = QoiOpLuma.tryWriteBytes(p1, p2, out, 1)
+        assertEquals(2, tryWritten)
+
+        val tryFailed = QoiOpLuma.tryWriteBytes(p1, pFar, out, 1)
+        assertEquals(0, tryFailed)
+
+        val directBytes = QoiOpLuma.toBytes(dg = 10, dr_dg = -3, db_dg = 4)
+        assertEquals(2, directBytes.size)
+        assertEquals(0xAA.toByte(), directBytes[0])
+        assertEquals(0x5C.toByte(), directBytes[1])
+
+        val colorBytes = QoiOpLuma.toBytes(p1, p2)
+        assertEquals(2, colorBytes?.size)
+    }
 }
+
