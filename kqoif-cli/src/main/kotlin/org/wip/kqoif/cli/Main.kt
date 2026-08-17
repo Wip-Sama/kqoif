@@ -14,6 +14,7 @@ import com.github.ajalt.clikt.parameters.types.int
 import org.wip.kqoif.QoiDiagnostic
 import org.wip.kqoif.QoiEncoderStrategy
 import org.wip.kqoif.QoiImage
+import org.wip.kqoif.formatDecimals
 import org.wip.kqoif.imageio.QoiImageIO
 import org.wip.kqoif.imageio.toBufferedImage
 import org.wip.kqoif.imageio.toQoiImage
@@ -388,11 +389,7 @@ class BenchmarkCommand : CliktCommand(name = "benchmark") {
         }
     }
 
-    private fun Double.format2Decimals(): String {
-        val factor = 100.0
-        val rounded = (this * factor).toLong() / factor
-        return rounded.toString()
-    }
+    private fun Double.format2Decimals(): String = formatDecimals(2)
 }
 
 fun main(args: Array<String>) = KqoifCommand()

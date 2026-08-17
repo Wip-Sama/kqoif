@@ -54,7 +54,7 @@ jobs:
           files: |
             kqoif-cli/build/distributions/*.zip
             kqoif-cli/build/distributions/*.tar
-            kqoif-core/build/libs/*.jar
-            kqoif-core/build/libs/*.klib
-            kqoif-imageio/build/libs/*.jar
             kqoif-cli/build/libs/*.jar
+            kqoif-imageio/build/libs/*.jar
+            kqoif-core/build/libs/kqoif-core-jvm-*.jar
+            kqoif-core/build/libs/*.klib

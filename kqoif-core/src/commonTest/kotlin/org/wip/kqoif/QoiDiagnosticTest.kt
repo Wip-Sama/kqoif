@@ -33,4 +33,20 @@ class QoiDiagnosticTest {
         assertTrue(jsonDump.startsWith("["))
         assertTrue(jsonDump.contains("\"hex\":"))
     }
+
+    @Test
+    fun testFormatDecimals() {
+        assertEquals("160.40", 160.4.formatDecimals(2))
+        assertEquals("160.400", 160.4.formatDecimals(3))
+        assertEquals("0.00", 0.0.formatDecimals(2))
+        assertEquals("0.000", 0.0.formatDecimals(3))
+        assertEquals("1.00", 1.0.formatDecimals(2))
+        assertEquals("355826.10", 355826.1.formatDecimals(2))
+        assertEquals("1.41", 1.412.formatDecimals(2))
+        assertEquals("1.412", 1.412.formatDecimals(3))
+        assertEquals("-0.50", (-0.5).formatDecimals(2))
+        assertEquals("NaN", Double.NaN.formatDecimals(2))
+        assertEquals("Infinity", Double.POSITIVE_INFINITY.formatDecimals(2))
+        assertEquals("-Infinity", Double.NEGATIVE_INFINITY.formatDecimals(2))
+    }
 }

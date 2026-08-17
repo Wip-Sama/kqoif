@@ -1,10 +1,29 @@
 package org.wip.kqoif
 
-private fun Double.format2Decimals(): String {
-    val factor = 100.0
-    val rounded = (this * factor).toLong() / factor
-    return rounded.toString()
+import kotlin.math.abs
+import kotlin.math.round
+
+/**
+ * Formats a [Double] number with a fixed number of [decimals] digits, preserving trailing zeros.
+ *
+ * @param decimals The number of fractional decimal places to format (default: 2).
+ * @return Formatted string representation.
+ */
+fun Double.formatDecimals(decimals: Int = 2): String {
+    if (isNaN()) return "NaN"
+    if (isInfinite()) return if (this > 0) "Infinity" else "-Infinity"
+    val isNegative = this < 0.0
+    val absValue = abs(this)
+    var factor = 1L
+    repeat(decimals) { factor *= 10 }
+    val rounded = round(absValue * factor).toLong()
+    val integerPart = rounded / factor
+    val fractionPart = (rounded % factor).toString().padStart(decimals, '0')
+    val prefix = if (isNegative && (integerPart > 0 || rounded > 0)) "-" else ""
+    return if (decimals > 0) "$prefix$integerPart.$fractionPart" else "$prefix$integerPart"
 }
+
+private fun Double.format2Decimals(): String = formatDecimals(2)
 
 private fun Int.toHex2(): String = (this and 0xFF).toString(16).padStart(2, '0').uppercase()
 private fun Byte.toHex2(): String = (this.toInt() and 0xFF).toString(16).padStart(2, '0').uppercase()
