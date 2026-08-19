@@ -113,11 +113,21 @@ kqoif convert input.png output.qoi --encoder object --stats
 
 ### Benchmark Encoder Strategies
 ```bash
-# Compare In-Memory Direct, In-Memory Object, Rolling Direct, and Rolling Object
+# Compare In-Memory Direct, In-Memory Object, Rolling Direct, and Rolling Object on a single image
 kqoif benchmark input.png
 
-# Benchmark with custom iterations and JSON output
-kqoif benchmark input.png -i 20 -w 5 --format json
+# Benchmark an entire directory of images with a summary table
+kqoif benchmark ./images/
+
+# Recursively benchmark a folder and export results to a JSON or CSV report
+kqoif benchmark ./images/ -r -o benchmark_results.json
+kqoif benchmark ./images/ -r -o benchmark_results.csv --format csv
+
+# Benchmark images and save generated .qoi files into a specific folder
+kqoif benchmark ./images/ --save-dir ./output_qoi/
+
+# Benchmark images and save .qoi files in the same folder as input
+kqoif benchmark ./images/ --save-images -i 20 -w 5
 ```
 
 ### Diagnostic & Pixel Dump

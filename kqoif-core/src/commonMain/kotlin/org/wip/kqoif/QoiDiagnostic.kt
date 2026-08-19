@@ -1,8 +1,5 @@
 package org.wip.kqoif
 
-import kotlin.math.abs
-import kotlin.math.round
-
 /**
  * Formats a [Double] number with a fixed number of [decimals] digits, preserving trailing zeros.
  *
@@ -13,10 +10,10 @@ fun Double.formatDecimals(decimals: Int = 2): String {
     if (isNaN()) return "NaN"
     if (isInfinite()) return if (this > 0) "Infinity" else "-Infinity"
     val isNegative = this < 0.0
-    val absValue = abs(this)
+    val absValue = if (this < 0.0) -this else this
     var factor = 1L
     repeat(decimals) { factor *= 10 }
-    val rounded = round(absValue * factor).toLong()
+    val rounded = (absValue * factor + 0.5).toLong()
     val integerPart = rounded / factor
     val fractionPart = (rounded % factor).toString().padStart(decimals, '0')
     val prefix = if (isNegative && (integerPart > 0 || rounded > 0)) "-" else ""

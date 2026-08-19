@@ -3,7 +3,8 @@ plugins {
 	alias(libs.plugins.kotlin.jvm) apply false
 }
 
-val projectVersion = providers.gradleProperty("version").orNull?.takeIf { it != "unspecified" } ?: "1.0.0-SNAPSHOT"
+val projectVersion = providers.gradleProperty("version").orNull?.takeIf { it != "unspecified" } ?: "1.0.1"
+
 
 allprojects {
 	group = "org.wip"
